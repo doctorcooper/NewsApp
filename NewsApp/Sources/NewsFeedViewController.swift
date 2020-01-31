@@ -42,8 +42,8 @@ final class NewsFeedViewController: UIViewController {
         title = "News App"
         navigationController?.navigationBar.prefersLargeTitles = true
         view.addSubview(tableView)
-        tableView.register(NewsItemTableViewCell.self,
-                           forCellReuseIdentifier: String(describing: NewsItemTableViewCell.self))
+        tableView.register(UINib(nibName: "NewsItemTableViewCell", bundle: .main),
+                           forCellReuseIdentifier: "NewsItemTableViewCell")
         tableView.rx.setDelegate(self)
             .disposed(by: disposeBag)
     }
