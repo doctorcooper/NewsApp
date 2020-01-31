@@ -15,6 +15,8 @@ final class NewsFeedViewModel: Reactor {
     
     private let disposeBag = DisposeBag()
     
+    private let maximumPages = 5
+    
     let initialState: State
     
     init(repository: NewsRepositoryProtocol) {
@@ -24,36 +26,66 @@ final class NewsFeedViewModel: Reactor {
     
     enum Action {
         case getNews
+        case getMoreNews
     }
     
     enum Mutation {
-        case setNews(news: [NewsSection])
+        case setNews(news: [NewsArticle], nextPage: Int?)
+        case appendNews(news: [NewsArticle], nextPage: Int?)
+        case setLoadingNextPage(Bool)
     }
     
     struct State {
-        var currentPage: Int = 1
-        var newsList: [NewsSection] = []
+        var nextPage: Int?
+        var newsList: [NewsArticle] = []
+        var isLoadingNextPage: Bool = false
     }
     
     func mutate(action: Action) -> Observable<Mutation> {
         switch action {
         case .getNews:
-            return getNews().map { .setNews(news: $0) }
+            return loadNews(page: 1).map { Mutation.setNews(news: $0, nextPage: $1) }
+        case .getMoreNews:
+            guard !self.currentState.isLoadingNextPage else {
+                return Observable.empty()
+            }
+            guard let page = self.currentState.nextPage else {
+                return Observable.empty()
+            }
+            return Observable.concat([
+                Observable.just(Mutation.setLoadingNextPage(true)),
+                loadNews(page: page).map { Mutation.appendNews(news: $0, nextPage: $1) },
+                Observable.just(Mutation.setLoadingNextPage(false)),
+            ])
+                
         }
     }
     
     func reduce(state: State, mutation: Mutation) -> State {
         var newState = state
         switch mutation {
-        case .setNews(let news):
+
+        case .setNews(let news, let nextPage):
             newState.newsList = news
+            newState.nextPage = nextPage
+        case .appendNews(let news, let nextPage):
+            newState.newsList.append(contentsOf: news)
+            newState.nextPage = nextPage
+        case .setLoadingNextPage(let isLoadingNextPage):
+            newState.isLoadingNextPage = isLoadingNextPage
         }
         return newState
     }
-    
-    func getNews() -> Observable<[NewsSection]> {
-        return repository.getNewsFeed(page: 1).asObservable()
-            .map { guard !$0.isEmpty else { return [] }
-                return [NewsSection(header: "", items: $0)] }
+
+    func loadNews(page: Int) -> Observable<([NewsArticle], Int?)> {
+        let emptyResult: ([NewsArticle], Int?) = ([], nil)
+        guard page < maximumPages else {
+            return .just(emptyResult)
+        }
+        return repository.getNewsFeed(page: page).asObservable()
+            .map { news in
+                let page = news.isEmpty ? nil : page + 1
+                return (news, page)
+        }
     }
 }

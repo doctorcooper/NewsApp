@@ -11,7 +11,7 @@ import UIKit
 import SafariServices
 
 protocol CoordinatorDelegate: AnyObject {
-    func openNews(from url: URL)
+    func openNews(from url: URL?)
 }
 
 final class Coordinator {
@@ -37,7 +37,10 @@ final class Coordinator {
 }
 
 extension Coordinator: CoordinatorDelegate {
-    func openNews(from url: URL) {
+    func openNews(from url: URL?) {
+        guard let url = url else {
+            return
+        }
         let safariVC = SFSafariViewController(url: url)
         navigationController?.present(safariVC, animated: true, completion: nil)
     }

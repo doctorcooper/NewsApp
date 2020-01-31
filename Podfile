@@ -10,7 +10,6 @@ def rxPods
   pod 'RxSwift'
   pod 'RxCocoa'
   pod 'ReactorKit'
-  pod 'RxDataSources'
 end
 
 def networkPods

@@ -10,9 +10,8 @@ import UIKit
 import SnapKit
 import RxSwift
 import RxCocoa
-import RxDataSources
 
-final class NewsFeedViewController: UIViewController {
+final class NewsFeedViewController: UIViewController, UITableViewDelegate {
     
     private lazy var tableView: UITableView = {
         let tableView = UITableView()
@@ -25,8 +24,6 @@ final class NewsFeedViewController: UIViewController {
     var viewModel: NewsFeedViewModel!
     
     weak var delegate: CoordinatorDelegate?
-    
-    var dataSource: RxTableViewSectionedReloadDataSource<NewsSection>!
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -58,27 +55,27 @@ final class NewsFeedViewController: UIViewController {
     
     private func setupRx() {
         
-        dataSource = RxTableViewSectionedReloadDataSource<NewsSection>(configureCell: { (_, tableView, indexPath, item) in
-            let cell = tableView.dequeueReusableCell(withIdentifier: String(describing: NewsItemTableViewCell.self),
-                                                     for: indexPath) as! NewsItemTableViewCell
-            cell.configure(from: item)
-            return cell
-        })
-        
         viewModel.state.map { $0.newsList }
-            .bind(to: tableView.rx.items(dataSource: dataSource))
-            .disposed(by: disposeBag)
+            .bind(to: tableView.rx.items(cellIdentifier: String(describing: NewsItemTableViewCell.self),
+                                         cellType: NewsItemTableViewCell.self)) { _, item, cell in
+                                            cell.configure(from: item)
+                                            
+        }.disposed(by: disposeBag)
         
         tableView.rx.modelSelected(NewsArticle.self)
             .subscribe(onNext: { [weak self] item in
                 self?.delegate?.openNews(from: item.url)
             })
+            .disposed(by: disposeBag)
+        
+        tableView.rx.contentOffset
+            .filter { [weak self] offset in
+                guard let `self` = self else { return false }
+                guard self.tableView.frame.height > 0 else { return false }
+                return offset.y + self.tableView.frame.height >= self.tableView.contentSize.height - 100
+        }
+        .map { _ in NewsFeedViewModel.Action.getMoreNews }
+        .bind(to: viewModel.action)
         .disposed(by: disposeBag)
-    }
-}
-
-extension NewsFeedViewController: UITableViewDelegate {
-    func tableView(_ tableView: UITableView, willDisplay cell: UITableViewCell, forRowAt indexPath: IndexPath) {
-//        let
     }
 }
